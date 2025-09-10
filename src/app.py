@@ -4,14 +4,16 @@ Flask Email Service Application
 
 This is the main Flask application that provides REST API endpoints for sending emails
 It handles password reset emails and success confirmations.
+It has a generic API end point that can be used by other microservices to send custom emails to the users.
 
 
-Purpose: Email service for user password reset functionality
+Purpose: Email service for user password reset functionality and sending custom emails to the users.
 
 Endpoints:
 - POST /api/email/send-password-reset: Send password reset email with secure token
 - POST /api/email/send-reset-success: Send password reset success confirmation
 - POST /api/email/test: Send test email to verify functionality
+- POST /api/email/send-custom-email: Send generic email based on the request; to be used by other services for sending custom email.
 - GET /health: Health check endpoint for monitoring
 
 Dependencies:
@@ -188,6 +190,39 @@ def health_check():
         "service": "email-service"
     }"""
     return jsonify({'status': 'healthy', 'service': 'email-service'}), 200
+
+@app.route('/api/email/send-custom-email', methods=['POST'])
+def send_custom_email():
+    """
+    Generic email endpoint for other microservices
+    
+    Request Body:
+    {
+        "to_email": "user@torontomu.ca",
+        "subject": " Subject",
+        "html_content": "<h1> HTML content</h1>",
+        
+    }
+    """
+    try:
+        data = request.json
+        to_email = data.get('to_email')
+        subject = data.get('subject')
+        html_content = data.get('html_content')
+
+        if not all(to_email and subject and html_content):
+            return jsonify({'error': 'to_email, subject, and html_content are required'}), 400
+        
+        success = email_service.send_email(to_email, subject, html_content)
+
+        if success:
+            return jsonify({'status': 'sent', 'message': 'Email sent successfully'}), 200
+        else:
+            return jsonify({'error': 'Failed to send email'}), 500
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
 @app.route('/api/email/test', methods=['POST'])
 def test_email():
